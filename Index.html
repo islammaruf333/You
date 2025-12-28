@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Surprise For You</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;600;800&family=Dancing+Script:wght@700&display=swap');
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #050505; /* Deep dark background */
+            font-family: 'Poppins', sans-serif;
+            color: white;
+        }
+
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+            text-align: center;
+            pointer-events: none; /* Let clicks pass through to JS except button */
+        }
+
+        .instruction {
+            font-size: 1.2rem;
+            letter-spacing: 2px;
+            color: #ffffff;
+            opacity: 0.8;
+            animation: pulse 2s infinite;
+            cursor: pointer;
+            pointer-events: auto;
+            border: 1px solid rgba(255,255,255,0.3);
+            padding: 15px 30px;
+            border-radius: 50px;
+            background: rgba(255,255,255,0.05);
+            backdrop-filter: blur(5px);
+            transition: all 0.3s ease;
+        }
+
+        .instruction:hover {
+            background: rgba(255,255,255,0.2);
+            transform: scale(1.05);
+        }
+
+        .hidden {
+            display: none;
+            opacity: 0;
+        }
+
+        .wish-container {
+            opacity: 0;
+            transform: scale(0.8);
+            transition: all 1s ease;
+        }
+
+        .wish-container.visible {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        h1 {
+            font-family: 'Dancing Script', cursive;
+            font-size: 4rem;
+            margin: 0;
+            background: linear-gradient(to right, #ff8a00, #e52e71);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 30px rgba(229, 46, 113, 0.5);
+        }
+
+        p {
+            font-size: 1.2rem;
+            margin-top: 10px;
+            color: #ddd;
+            line-height: 1.6;
+            max-width: 600px;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.4); }
+            70% { box-shadow: 0 0 0 15px rgba(255, 255, 255, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+        }
+
+        /* Mobile Adjustments */
+        @media (max-width: 768px) {
+            h1 { font-size: 2.5rem; }
+            p { font-size: 1rem; padding: 0 20px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+
+    <div id="ui-layer">
+        <div id="start-btn" class="instruction">Tap to Open Your Gift 🎁</div>
+        
+        <div id="wish-message" class="wish-container hidden">
+            <h1>Happy Birthday!</h1>
+            <h1>My Dear Wife ❤️</h1>
+            <p>
+                তুমি আমার জীবনের সবচেয়ে সুন্দর অধ্যায়। তোমার হাসিটা যেন আমার প্রতিদিনের অনুপ্রেরণা।<br>
+                শুভ জন্মদিন প্রিয়তমা!
+            </p>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <script>
+        // --- Three.js Setup ---
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+        
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0x404040, 2);
+        scene.add(ambientLight);
+
+        const pointLight = new THREE.PointLight(0xff0055, 2, 100);
+        pointLight.position.set(10, 10, 10);
+        scene.add(pointLight);
+        
+        const pointLight2 = new THREE.PointLight(0x00aaff, 2, 100);
+        pointLight2.position.set(-10, -10, 10);
+        scene.add(pointLight2);
+
+        // Object: The "Gift" (An Icosahedron Crystal)
+        const geometry = new THREE.IcosahedronGeometry(1.5, 0);
+        const material = new THREE.MeshPhongMaterial({ 
+            color: 0xffffff, 
+            shininess: 100,
+            flatShading: true,
+            transparent: true,
+            opacity: 0.9
+        });
+        const crystal = new THREE.Mesh(geometry, material);
+        
+        // Add a wireframe for a techy look
+        const wireframeGeo = new THREE.WireframeGeometry(geometry);
+        const wireframeMat = new THREE.LineBasicMaterial({ color: 0xffffff, opacity: 0.3, transparent: true });
+        const wireframe = new THREE.LineSegments(wireframeGeo, wireframeMat);
+        
+        crystal.add(wireframe);
+        scene.add(crystal);
+
+        camera.position.z = 5;
+
+        // Animation Loop
+        let speed = 0.005;
+        let isOpened = false;
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            crystal.rotation.x += speed;
+            crystal.rotation.y += speed;
+
+            // Gentle floating effect
+            if (!isOpened) {
+                crystal.position.y = Math.sin(Date.now() * 0.002) * 0.2;
+            }
+
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // --- Interaction Logic ---
+        const startBtn = document.getElementById('start-btn');
+        const wishMsg = document.getElementById('wish-message');
+
+        startBtn.addEventListener('click', () => {
+            if (isOpened) return;
+            isOpened = true;
+
+            // 1. Hide Button
+            startBtn.style.display = 'none';
+
+            // 2. Animate 3D Object (Explosion effect simulation by fast spin and scale)
+            speed = 0.1; // Spin fast
+            
+            let scaleVal = 1;
+            const expandInterval = setInterval(() => {
+                scaleVal += 0.1;
+                crystal.scale.set(scaleVal, scaleVal, scaleVal);
+                crystal.material.opacity -= 0.05;
+                wireframe.material.opacity -= 0.05;
+
+                if (scaleVal > 5) {
+                    clearInterval(expandInterval);
+                    scene.remove(crystal); // Remove object after expansion
+                }
+            }, 50);
+
+            // 3. Fire Confetti
+            fireConfetti();
+
+            // 4. Show Wish
+            setTimeout(() => {
+                wishMsg.classList.remove('hidden');
+                // Trigger reflow
+                void wishMsg.offsetWidth; 
+                wishMsg.classList.add('visible');
+            }, 800);
+        });
+
+        // Confetti Function
+        function fireConfetti() {
+            var duration = 3 * 1000;
+            var animationEnd = Date.now() + duration;
+            var defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
+
+            var random = function(min, max) {
+                return Math.random() * (max - min) + min;
+            };
+
+            var interval = setInterval(function() {
+                var timeLeft = animationEnd - Date.now();
+
+                if (timeLeft <= 0) {
+                    return clearInterval(interval);
+                }
+
+                var particleCount = 50 * (timeLeft / duration);
+                
+                // Since particles fall down, start a bit higher than random
+                confetti(Object.assign({}, defaults, { particleCount, origin: { x: random(0.1, 0.3), y: Math.random() - 0.2 } }));
+                confetti(Object.assign({}, defaults, { particleCount, origin: { x: random(0.7, 0.9), y: Math.random() - 0.2 } }));
+            }, 250);
+        }
+
+        // Responsive Resizing
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
